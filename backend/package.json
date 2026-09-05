@@ -1,0 +1,28 @@
+{
+  "name": "streambert-backend",
+  "version": "1.0.0",
+  "description": "Standalone REST API extracted from Streambert — local-only media metadata & stream aggregator",
+  "type": "module",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "test": "node --test test/unit.test.js",
+    "test:smoke": "cross-env SMOKE=1 node --test test/smoke.test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "dotenv": "^16.4.7"
+  },
+  "optionalDependencies": {
+    "puppeteer": "^23.11.0"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "nodemon": "^3.1.9"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
