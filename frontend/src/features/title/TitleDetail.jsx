@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import MetadataRow from '../../components/MetadataRow';
 import MinimalPlayer from '../player/MinimalPlayer';
 import AsymmetricGrid from '../../components/AsymmetricGrid';
 import { useWatchlist } from '../../hooks/useWatchlist';
 import { usePlaybackState } from '../../hooks/usePlaybackState';
+import CustomSelect from '../../components/CustomSelect';
+import { applyDynamicTheme, resetTheme } from '../../utils/ThemeEngine';
 
 export default function TitleDetail() {
   const { type, id } = useParams();
@@ -36,6 +38,11 @@ export default function TitleDetail() {
         const res = await api.tmdb.getDetails(type, id);
         setData(res);
 
+        if (res.backdrop_path) {
+          const themeUrl = `https://image.tmdb.org/t/p/w300${res.backdrop_path}`;
+          applyDynamicTheme(themeUrl);
+        }
+
         if (type === 'tv' && res.seasons) {
           const validSeasons = res.seasons.filter(s => s.season_number > 0);
           if (validSeasons.length > 0) {
@@ -47,6 +54,10 @@ export default function TitleDetail() {
       }
     }
     load();
+    
+    return () => {
+      resetTheme();
+    };
   }, [type, id]);
 
   const [isDownloading, setIsDownloading] = useState(false);
@@ -69,6 +80,25 @@ export default function TitleDetail() {
     }
   };
 
+  const [searchParams] = useSearchParams();
+  const partyId = searchParams.get('party');
+  const [activePartyId, setActivePartyId] = useState(partyId || null);
+
+  const handleWatchParty = async () => {
+    // Generate a random room ID
+    const newRoomId = Math.random().toString(36).substring(2, 9);
+    setActivePartyId(newRoomId);
+    
+    // Copy the invite link to clipboard
+    const inviteLink = `${window.location.origin}${window.location.pathname}?party=${newRoomId}`;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      alert(`Watch Party Created!\n\nInvite link copied to clipboard:\n${inviteLink}\n\nSend this to a friend and click PLAY!`);
+    } catch (e) {
+      alert(`Watch Party Created!\n\nShare this link:\n${inviteLink}`);
+    }
+  };
+
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
@@ -81,7 +111,7 @@ export default function TitleDetail() {
         let outputDir = 'C:/Downloads'; // Fallback
         try {
           const settings = await api.settings.get();
-          if (settings.defaultDownloadDir) outputDir = settings.defaultDownloadDir;
+          if (settings.DOWNLOAD_DIR) outputDir = settings.DOWNLOAD_DIR;
         } catch (e) {
           console.error('Failed to fetch settings, using fallback download dir', e);
         }
@@ -148,30 +178,69 @@ export default function TitleDetail() {
           title={streamData.title} 
           isEmbed={streamData.isEmbed}
           initialTime={progress?.currentTime || 0}
-          onTimeUpdate={(currentTime, duration) => saveProgress(currentTime, duration)}
+          partyId={activePartyId}
+          onTimeUpdate={(currentTime, duration) => {
+            saveProgress(currentTime, duration);
+          }}
+          hasNextEpisode={type === 'tv' && episode < episodeCount}
+          onNextEpisode={() => {
+            setStreamData(null);
+            setEpisode(episode + 1);
+            setTimeout(() => handlePlay(), 500);
+          }}
           onClose={() => setStreamData(null)} 
         />
       )}
       {/* Hero Section */}
       <div style={{ position: 'relative', width: '100vw', height: '100vh', isolation: 'isolate' }}>
         {/* Full Bleed Backdrop */}
-      {backdropUrl && (
+      {(backdropUrl || data.videos?.results) && (
         <div style={{
           position: 'absolute',
           inset: 0,
           zIndex: -1,
+          overflow: 'hidden'
         }}>
-          <img 
-            src={backdropUrl} 
-            alt={title}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              objectPosition: 'center 20%',
-              maxWidth: 'none',
-            }}
-          />
+          {(() => {
+            const trailer = data.videos?.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube') || 
+                            data.videos?.results?.find(v => v.site === 'YouTube');
+            
+            if (trailer) {
+              return (
+                <iframe
+                  src={`https://www.youtube.com/embed/${trailer.key}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=${trailer.key}`}
+                  allow="autoplay; encrypted-media"
+                  style={{
+                    width: '100vw',
+                    height: '56.25vw', /* 16:9 aspect ratio */
+                    minHeight: '100vh',
+                    minWidth: '177.77vh',
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    border: 'none',
+                    pointerEvents: 'none'
+                  }}
+                />
+              );
+            }
+            
+            return backdropUrl ? (
+              <img 
+                src={backdropUrl} 
+                alt={title}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  objectPosition: 'center 20%',
+                  maxWidth: 'none',
+                }}
+              />
+            ) : null;
+          })()}
+          
           {/* Hard gradient mask at the bottom third ONLY */}
           <div style={{
             position: 'absolute',
@@ -229,51 +298,29 @@ export default function TitleDetail() {
         </p>
 
         {type === 'tv' && validSeasons.length > 0 && (
-          <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <select 
+          <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', alignItems: 'center', zIndex: 50 }}>
+            <CustomSelect
               value={season}
-              onChange={(e) => {
-                setSeason(Number(e.target.value));
-                setEpisode(1); // reset to ep 1 on season change
+              onChange={(val) => {
+                setSeason(Number(val));
+                setEpisode(1);
               }}
-              style={{
-                backgroundColor: 'transparent',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--text-metadata)',
-                padding: '0.5rem 1rem',
-                fontFamily: 'Oswald, sans-serif',
-                fontSize: '1.1rem',
-                outline: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              {validSeasons.map(s => (
-                <option key={s.id} value={s.season_number} style={{ color: '#000' }}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+              options={validSeasons.map(s => ({
+                value: s.season_number,
+                label: s.name
+              }))}
+              minWidth="180px"
+            />
 
-            <select 
+            <CustomSelect
               value={episode}
-              onChange={(e) => setEpisode(Number(e.target.value))}
-              style={{
-                backgroundColor: 'transparent',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--text-metadata)',
-                padding: '0.5rem 1rem',
-                fontFamily: 'Oswald, sans-serif',
-                fontSize: '1.1rem',
-                outline: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              {Array.from({ length: episodeCount }, (_, i) => (
-                <option key={i + 1} value={i + 1} style={{ color: '#000' }}>
-                  Episode {i + 1}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setEpisode(Number(val))}
+              options={Array.from({ length: episodeCount }, (_, i) => ({
+                value: i + 1,
+                label: `Episode ${i + 1}`
+              }))}
+              minWidth="150px"
+            />
           </div>
         )}
 
@@ -374,6 +421,30 @@ export default function TitleDetail() {
             }}
           >
             {isDownloading ? 'EXTRACTING...' : 'DOWNLOAD'}
+          </button>
+          
+          <button 
+            onClick={handleWatchParty}
+            style={{
+              padding: '1rem 2rem',
+              backgroundColor: activePartyId ? 'var(--text-primary)' : 'var(--bg-secondary)',
+              color: activePartyId ? 'var(--bg-primary)' : 'var(--text-primary)',
+              fontFamily: 'Oswald, sans-serif',
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              cursor: 'pointer',
+              border: '2px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '8px',
+              backdropFilter: 'blur(10px)',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            {activePartyId ? 'PARTY ACTIVE' : 'WATCH PARTY'}
           </button>
         </div>
       </div>

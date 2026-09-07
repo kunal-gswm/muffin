@@ -6,7 +6,9 @@ import os from 'node:os';
 
 export function createSettingsRouter() {
   const router = Router();
-  const envPath = path.resolve(process.cwd(), '.env');
+  const envPath = process.env.PORTABLE_EXECUTABLE_DIR 
+    ? path.join(process.env.PORTABLE_EXECUTABLE_DIR, '.env') 
+    : path.resolve(process.cwd(), '.env');
 
   // GET /api/settings — read current .env values
   router.get('/', (req, res) => {

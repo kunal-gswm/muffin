@@ -4,6 +4,11 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
 import './index.css'
 
+const savedTheme = localStorage.getItem('streambert_theme');
+if (savedTheme) {
+  document.documentElement.className = savedTheme;
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>

@@ -5,3 +5,11 @@ scratch/
 N_m3u8DL-RE/
 N_m3u8DL-RE.zip
 downloader.bat
+
+dist-electron/
+ui-dist/
+data/
+scratch/
+fatal.txt
+debug.txt
+main_error.log

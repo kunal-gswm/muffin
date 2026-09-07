@@ -81,7 +81,10 @@ export function getDownloads() {
 
 export function startDownload({ m3u8Url, name, outputDir, tmdbId, mediaType, season, episode, posterPath }) {
   if (!validatedBinaryPath) {
-    throw Object.assign(new Error('Download binary not available'), { status: 501 });
+    const check = validateBinary();
+    if (!check.available) {
+      throw Object.assign(new Error(`Download binary not available: ${check.reason}`), { status: 501 });
+    }
   }
 
   const downloads = loadDownloads();
@@ -110,10 +113,27 @@ export function startDownload({ m3u8Url, name, outputDir, tmdbId, mediaType, sea
   downloads.unshift(download);
   saveDownloads(downloads);
 
+  // Determine if we need shell
+  const isBat = validatedBinaryPath.toLowerCase().endsWith('.bat') || validatedBinaryPath.toLowerCase().endsWith('.cmd');
+  
+  // When using shell on Windows, Node doesn't automatically quote arguments with spaces
+  const safeName = isBat ? `"${sanitizedName}"` : sanitizedName;
+  const safeDir = isBat ? `"${outputDir}"` : outputDir;
+
   // Spawn the binary
-  const proc = spawn(validatedBinaryPath, [m3u8Url, outPath], {
+  const proc = spawn(validatedBinaryPath, [
+    m3u8Url, 
+    '--save-dir', safeDir, 
+    '--save-name', safeName,
+    '--auto-select',
+    '-M', 'format=mp4',
+    '--header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    '--header', 'Origin: https://vidking.net',
+    '--header', 'Referer: https://vidking.net/'
+  ], {
     cwd: outputDir,
     stdio: ['ignore', 'pipe', 'pipe'],
+    shell: isBat
   });
 
   activeProcs.set(id, { proc, killTimer: null });

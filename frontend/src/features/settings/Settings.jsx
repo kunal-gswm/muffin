@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
+import { sound } from '../../utils/SoundManager';
 
 export default function Settings() {
   const [settings, setSettings] = useState({
@@ -157,6 +158,59 @@ export default function Settings() {
         </div>
 
         <h3 className="text-h3" style={{ marginTop: '4rem', marginBottom: '2rem', color: 'var(--accent)' }}>Preferences</h3>
+        
+        <label style={labelStyle}>UI Sound Design</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '1.25rem' }}>
+            <input 
+              type="checkbox" 
+              checked={sound.muted} 
+              onChange={(e) => {
+                sound.setMuted(e.target.checked);
+                // force re-render
+                setSettings(prev => ({...prev}));
+              }} 
+              style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+            />
+            Mute UI Sound Effects
+          </label>
+        </div>
+
+        <label style={labelStyle}>Theme Color</label>
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+          {[
+            { name: 'Ochre (Default)', class: '', color: '#b3594b' },
+            { name: 'Blue', class: 'theme-blue', color: '#4b7eb3' },
+            { name: 'Green', class: 'theme-green', color: '#4bb36a' },
+            { name: 'Purple', class: 'theme-purple', color: '#8e4bb3' },
+            { name: 'Crimson', class: 'theme-crimson', color: '#b32a2a' }
+          ].map(theme => (
+            <button
+              key={theme.name}
+              type="button"
+              title={theme.name}
+              onClick={() => {
+                localStorage.setItem('streambert_theme', theme.class);
+                document.documentElement.className = theme.class;
+                // Force re-render to update the current component's UI
+                setSettings(prev => ({...prev})); 
+              }}
+              style={{
+                width: '3rem',
+                height: '3rem',
+                borderRadius: '50%',
+                backgroundColor: theme.color,
+                border: document.documentElement.className === theme.class || (document.documentElement.className === '' && theme.class === '') 
+                  ? '3px solid #fff' 
+                  : '3px solid transparent',
+                cursor: 'pointer',
+                transition: 'transform 0.2s ease, border-color 0.2s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            />
+          ))}
+        </div>
 
         <label style={labelStyle}>Preferred Streaming Quality</label>
         <select 

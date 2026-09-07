@@ -4,37 +4,14 @@ import path from 'node:path';
 
 loadEnv();
 
-// ── Required ──────────────────────────────────────────────────────────────────
-const TMDB_API_KEY = (process.env.TMDB_API_KEY || '').trim();
-
-// ── Server ────────────────────────────────────────────────────────────────────
-const PORT = parseInt(process.env.PORT || '3939', 10);
-
-// ── Optional keys ─────────────────────────────────────────────────────────────
-const SUBDL_API_KEY = (process.env.SUBDL_API_KEY || '').trim();
-const WYZIE_API_KEY = (process.env.WYZIE_API_KEY || '').trim();
-
-// ── Feature flags ─────────────────────────────────────────────────────────────
-const ENABLE_ANIME = process.env.ENABLE_ANIME !== 'false'; // default true
-
-// ── Downloader binary ─────────────────────────────────────────────────────────
-// Must be an exact absolute path to the binary. Validated at boot.
-const DOWNLOADER_PATH = (process.env.DOWNLOADER_PATH || '').trim();
-
-// ── Puppeteer tuning ──────────────────────────────────────────────────────────
-const PUPPETEER_MAX_PAGES = Math.max(1, Math.min(4, parseInt(process.env.PUPPETEER_MAX_PAGES || '2', 10)));
-const PUPPETEER_MAX_REQUESTS = parseInt(process.env.PUPPETEER_MAX_REQUESTS || '50', 10);
-const PUPPETEER_PAGE_TIMEOUT = parseInt(process.env.PUPPETEER_PAGE_TIMEOUT || '30000', 10);
-
-// ── Data directory ────────────────────────────────────────────────────────────
-const DATA_DIR = path.resolve(process.env.DATA_DIR || './data');
-
-// ── Validation (called from main(), not at import time) ───────────────────────
-
-/** Validate config. Returns { ok, warnings, errors }. */
+// ── Validation ───────────────────────
 export async function validateConfig() {
   const errors = [];
   const warnings = [];
+  const TMDB_API_KEY = (process.env.TMDB_API_KEY || '').trim();
+  const SUBDL_API_KEY = (process.env.SUBDL_API_KEY || '').trim();
+  const WYZIE_API_KEY = (process.env.WYZIE_API_KEY || '').trim();
+  const DOWNLOADER_PATH = (process.env.DOWNLOADER_PATH || '').trim();
 
   if (!TMDB_API_KEY) {
     errors.push('TMDB_API_KEY is required. Get one at https://www.themoviedb.org/settings/api');
@@ -46,7 +23,7 @@ export async function validateConfig() {
   if (DOWNLOADER_PATH) {
     try {
       const real = fs.realpathSync(DOWNLOADER_PATH);
-      if (real !== path.resolve(DOWNLOADER_PATH)) {
+      if (real.toLowerCase() !== path.resolve(DOWNLOADER_PATH).toLowerCase()) {
         errors.push(`DOWNLOADER_PATH resolves to "${real}" which doesn't match "${path.resolve(DOWNLOADER_PATH)}". Use the canonical absolute path.`);
       }
     } catch {
@@ -74,14 +51,14 @@ export async function validateConfig() {
 }
 
 export default {
-  TMDB_API_KEY,
-  PORT,
-  SUBDL_API_KEY,
-  WYZIE_API_KEY,
-  ENABLE_ANIME,
-  DOWNLOADER_PATH,
-  PUPPETEER_MAX_PAGES,
-  PUPPETEER_MAX_REQUESTS,
-  PUPPETEER_PAGE_TIMEOUT,
-  DATA_DIR,
+  get TMDB_API_KEY() { return (process.env.TMDB_API_KEY || '').trim(); },
+  get PORT() { return parseInt(process.env.PORT || '3939', 10); },
+  get SUBDL_API_KEY() { return (process.env.SUBDL_API_KEY || '').trim(); },
+  get WYZIE_API_KEY() { return (process.env.WYZIE_API_KEY || '').trim(); },
+  get ENABLE_ANIME() { return process.env.ENABLE_ANIME !== 'false'; },
+  get DOWNLOADER_PATH() { return (process.env.DOWNLOADER_PATH || '').trim(); },
+  get PUPPETEER_MAX_PAGES() { return Math.max(1, Math.min(4, parseInt(process.env.PUPPETEER_MAX_PAGES || '2', 10))); },
+  get PUPPETEER_MAX_REQUESTS() { return parseInt(process.env.PUPPETEER_MAX_REQUESTS || '50', 10); },
+  get PUPPETEER_PAGE_TIMEOUT() { return parseInt(process.env.PUPPETEER_PAGE_TIMEOUT || '30000', 10); },
+  get DATA_DIR() { return path.resolve(process.env.DATA_DIR || './data'); },
 };

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
-import AsymmetricGrid from '../../components/AsymmetricGrid';
+import GalleryGrid from '../../components/GalleryGrid';
 
 export default function Home() {
   const [data, setData] = useState({
@@ -19,19 +19,19 @@ export default function Home() {
     async function loadData() {
       try {
         let continueWatching = [];
-        const storedProgress = localStorage.getItem('streambert_progress');
-        if (storedProgress) {
-          const parsed = JSON.parse(storedProgress);
-          continueWatching = Object.values(parsed)
-            .sort((a, b) => b.updatedAt - a.updatedAt)
-            .slice(0, 4)
-            .map(p => ({
+        try {
+          const res = await api.history.get();
+          if (res && Array.isArray(res)) {
+            continueWatching = res.slice(0, 4).map(p => ({
               id: p.id,
               title: p.title,
-              poster_path: p.poster_path,
-              media_type: p.media_type,
-              progress: p.percentage
+              poster_path: p.posterPath, // from backend
+              media_type: p.type,
+              progress: p.duration > 0 ? (p.currentTime / p.duration) * 100 : 0
             }));
+          }
+        } catch (e) {
+          console.error('Failed to fetch history', e);
         }
 
         // Create a daily seed to rotate the page number for dynamic daily content
@@ -100,7 +100,7 @@ export default function Home() {
     return (
       <section style={{ marginBottom: '6rem' }}>
         <h2 className="text-h2" style={{ marginBottom: '2rem' }}>{title}</h2>
-        <AsymmetricGrid items={items.slice(0, 13)} type={type} />
+        <GalleryGrid items={items} type={type} />
       </section>
     );
   };
@@ -111,7 +111,7 @@ export default function Home() {
       {data.continueWatching.length > 0 && (
         <section style={{ marginBottom: '6rem' }}>
           <h2 className="text-h2" style={{ marginBottom: '2rem' }}>Continue Watching</h2>
-          <AsymmetricGrid items={data.continueWatching} disableHero={true} />
+          <GalleryGrid items={data.continueWatching} />
         </section>
       )}
 
@@ -121,7 +121,6 @@ export default function Home() {
       {renderSection('Heart-Pounding Thrillers', data.thrillerMovies, 'movie')}
       {renderSection('Gritty Crime', data.crimeMovies, 'movie')}
       {renderSection('Suspense & Mystery Series', data.mysteryTv, 'tv')}
-      {renderSection('Anime', data.anime, 'anime')}
 
     </div>
   );

@@ -1,6 +1,7 @@
 :root {
   /* The Void - Strict near-black background */
   --bg-primary: #0a0a0b;
+  --theme-dynamic: #0a0a0b;
   --bg-secondary: #121214;
   --bg-tertiary: #1a1a1c;
   
@@ -12,7 +13,7 @@
   /* State Accent - Desaturated ochre/brick, used sparingly */
   --accent: #b3594b;
   --accent-hover: #c96859;
-  
+
   /* Geometry */
   --radius: 0px; /* Hard rule: sharp corners everywhere */
   
@@ -23,6 +24,27 @@
   /* Motion */
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --duration: 150ms;
+}
+
+/* Custom Themes */
+:root.theme-blue {
+  --accent: #4b7eb3;
+  --accent-hover: #5992c9;
+}
+
+:root.theme-green {
+  --accent: #4bb36a;
+  --accent-hover: #59c97d;
+}
+
+:root.theme-purple {
+  --accent: #8e4bb3;
+  --accent-hover: #a359c9;
+}
+
+:root.theme-crimson {
+  --accent: #b32a2a;
+  --accent-hover: #c93b3b;
 }
 
 /* ── Resets ────────────────────────────────────────────────────────────────── */
@@ -37,11 +59,14 @@ html, body {
   width: 100%;
   min-height: 100vh;
   background-color: var(--bg-primary);
+  background-image: radial-gradient(circle at 50% 0%, var(--theme-dynamic) 0%, var(--bg-primary) 60%);
+  background-attachment: fixed;
   color: var(--text-primary);
   font-family: 'Roboto', sans-serif;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  transition: background-image 1s ease-in-out;
 }
 
 img, picture, video, canvas, svg {
@@ -96,6 +121,12 @@ h1, h2, h3, h4, h5, h6, .display-type {
   max-width: var(--max-width);
   margin: 0 auto;
   padding: 0 var(--pad-x);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 0px;
+  display: none;
 }
 
 /* Full bleed utility for breaking out of container */
@@ -164,4 +195,12 @@ h1, h2, h3, h4, h5, h6, .display-type {
     transform: translateY(0); 
     filter: blur(0);
   }
+}
+
+/* Custom Form Elements */
+select option {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-family: inherit;
+  padding: 0.5rem;
 }

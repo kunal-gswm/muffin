@@ -1,4 +1,4 @@
-const BASE_URL = 'http://127.0.0.1:3939/api';
+const BASE_URL = import.meta.env.DEV ? 'http://127.0.0.1:3939/api' : '/api';
 
 /**
  * Basic fetch wrapper for the local API.
@@ -32,7 +32,8 @@ export const api = {
     getPopular: (type = 'movie') => fetchApi(`/tmdb/${type}/popular`),
     discover: (type = 'movie', params = '') => fetchApi(`/tmdb/discover/${type}?${params}`),
     getDetails: (type, id) => fetchApi(`/tmdb/${type}/${id}`),
-    search: (query) => fetchApi(`/tmdb/search?q=${encodeURIComponent(query)}`)
+    search: (query) => fetchApi(`/tmdb/search?q=${encodeURIComponent(query)}`),
+    getTrailer: (type, id) => fetchApi(`/tmdb/${type}/${id}/videos`)
   },
   sources: {
     resolve: (type, id, season, episode) => {
@@ -75,5 +76,15 @@ export const api = {
       body: JSON.stringify({ translationType })
     }),
     getAnilist: (anilistId) => fetchApi(`/anime/anilist/${anilistId}`)
+  },
+  history: {
+    get: () => fetchApi('/history'),
+    getProgress: (type, id) => fetchApi(`/history/${type}/${id}`),
+    save: (payload) => fetchApi('/history', { method: 'POST', body: JSON.stringify(payload) })
+  },
+  profiles: {
+    get: () => fetchApi('/profiles'),
+    save: (payload) => fetchApi('/profiles', { method: 'POST', body: JSON.stringify(payload) }),
+    delete: (id) => fetchApi(`/profiles/${id}`, { method: 'DELETE' })
   }
 };

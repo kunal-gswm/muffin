@@ -1,54 +1,50 @@
-import { useEffect, useState } from 'react';
-
-const PROGRESS_KEY = 'streambert_progress';
+import { useEffect, useState, useRef } from 'react';
+import { api } from '../api/client';
 
 export function usePlaybackState(mediaData, season, episode) {
   const [progress, setProgress] = useState(null);
+  const lastSync = useRef(0);
 
   // Load progress on mount
   useEffect(() => {
     if (!mediaData || !mediaData.id) return;
-    try {
-      const stored = localStorage.getItem(PROGRESS_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed[mediaData.id]) {
-          setProgress(parsed[mediaData.id]);
+    
+    api.history.getProgress(mediaData.media_type, mediaData.id)
+      .then(res => {
+        if (res && res.currentTime) {
+          setProgress(res);
         }
-      }
-    } catch (err) {
-      console.error('Failed to load progress', err);
-    }
+      })
+      .catch(err => console.error('Failed to load progress', err));
   }, [mediaData?.id]);
 
   const saveProgress = (currentTime, duration, isFinished = false) => {
     if (!mediaData || !mediaData.id) return;
 
-    try {
-      const stored = localStorage.getItem(PROGRESS_KEY);
-      const parsed = stored ? JSON.parse(stored) : {};
+    // Debounce save to max once every 3 seconds to avoid spamming the backend
+    const now = Date.now();
+    if (now - lastSync.current < 3000 && !isFinished && duration > 0) return;
+    lastSync.current = now;
 
-      const percentage = duration > 0 ? (currentTime / duration) * 100 : 0;
-      
-      parsed[mediaData.id] = {
-        id: mediaData.id,
-        title: mediaData.title || mediaData.name,
-        poster_path: mediaData.poster_path || mediaData.coverImage?.large,
-        media_type: mediaData.media_type,
-        season,
-        episode,
-        currentTime,
-        duration,
-        percentage,
-        isFinished,
-        updatedAt: Date.now()
-      };
+    const payload = {
+      id: mediaData.id.toString(),
+      title: mediaData.title || mediaData.name,
+      posterPath: mediaData.poster_path || mediaData.coverImage?.large,
+      type: mediaData.media_type,
+      season,
+      episode,
+      currentTime,
+      duration,
+      isFinished
+    };
 
-      localStorage.setItem(PROGRESS_KEY, JSON.stringify(parsed));
-      window.dispatchEvent(new Event('progress_updated'));
-    } catch (err) {
-      console.error('Failed to save progress', err);
-    }
+    setProgress(payload);
+
+    api.history.save(payload)
+      .then(() => {
+        window.dispatchEvent(new Event('progress_updated'));
+      })
+      .catch(err => console.error('Failed to save progress', err));
   };
 
   const markOpened = () => {

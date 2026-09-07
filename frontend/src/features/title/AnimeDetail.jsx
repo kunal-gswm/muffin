@@ -103,43 +103,7 @@ export default function AnimeDetail() {
   }, [id]);
 
   const handlePlay = async () => {
-    if (!allanimeId) return;
-    setIsResolving(true);
-    try {
-      const res = await api.anime.resolve(allanimeId, episode, translationType);
-      if (res && res.sources && res.sources.length > 0) {
-        
-        // Enforce Preferred Quality
-        let bestSource = res.sources[0];
-        try {
-          const settings = JSON.parse(localStorage.getItem('streambert_settings') || '{}');
-          const prefQuality = settings.PREFERRED_QUALITY || '1080p';
-          const match = res.sources.find(s => 
-            s.sourceName?.toLowerCase().includes(prefQuality) || 
-            s.url?.toLowerCase().includes(prefQuality)
-          );
-          if (match) bestSource = match;
-        } catch (e) {
-          console.error('Failed to parse settings', e);
-        }
-
-        const title = anilistData?.title?.english || anilistData?.title?.romaji || 'Anime';
-        setStreamData({ 
-          sources: res.sources, 
-          defaultSource: bestSource,
-          title: `${title} - Ep ${episode} (${translationType.toUpperCase()})`,
-          isEmbed: false 
-        });
-        markOpened();
-      } else {
-        alert('No stream found for this episode.');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Failed to resolve stream: ' + err.message);
-    } finally {
-      setIsResolving(false);
-    }
+    alert('Anime Streaming is Coming Soon!');
   };
 
   const handleLibraryToggle = () => {

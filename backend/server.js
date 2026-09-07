@@ -3,7 +3,11 @@
 
 import express from 'express';
 import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import config, { validateConfig } from './src/config.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Route modules
 import { createTmdbRouter } from './src/routes/tmdb.js';
@@ -11,9 +15,11 @@ import { createSourcesRouter } from './src/routes/sources.js';
 import { createAnimeRouter } from './src/routes/anime.js';
 import { createSubtitlesRouter } from './src/routes/subtitles.js';
 import { createDownloadsRouter } from './src/routes/downloads.js';
+import { createHistoryRouter } from './src/routes/history.js';
 import { createLibraryRouter } from './src/routes/library.js';
 import { createMiscRouter } from './src/routes/misc.js';
 import { createSettingsRouter } from './src/routes/settings.js';
+import { createProfilesRouter } from './src/routes/profiles.js';
 
 // Services (real implementations)
 import { createTmdbClient } from './src/services/tmdbClient.js';
@@ -53,6 +59,10 @@ export function createApp(services = {}) {
   app.use(corsMiddleware);
   app.use(express.json());
 
+  // Serve static UI files
+  const uiDist = path.join(__dirname, 'ui-dist');
+  app.use(express.static(uiDist));
+
   // Services — injected or real
   const tmdbClient = services.tmdbClient || createTmdbClient(config.TMDB_API_KEY);
   const enableAnime = services.enableAnime ?? config.ENABLE_ANIME;
@@ -63,8 +73,10 @@ export function createApp(services = {}) {
   app.use('/api/anime', createAnimeRouter({ enabled: enableAnime }));
   app.use('/api/subtitles', createSubtitlesRouter());
   app.use('/api/downloads', createDownloadsRouter());
+  app.use('/api/history', createHistoryRouter());
   app.use('/api/library', createLibraryRouter());
   app.use('/api/settings', createSettingsRouter());
+  app.use('/api/profiles', createProfilesRouter());
   app.use('/api', createMiscRouter(tmdbClient));
 
   // Health check
@@ -72,9 +84,17 @@ export function createApp(services = {}) {
     res.json({ status: 'ok', uptime: process.uptime() });
   });
 
-  // 404 handler
+  // 404 handler for API
   app.use('/api/*', (req, res) => {
     res.status(404).json({ error: `Not found: ${req.method} ${req.originalUrl}` });
+  });
+
+  // SPA fallback for frontend routing
+  app.get('*', (req, res, next) => {
+    if (req.originalUrl.startsWith('/api')) {
+      return next();
+    }
+    res.sendFile(path.join(uiDist, 'index.html'));
   });
 
   // Global async error handler
@@ -87,9 +107,11 @@ export function createApp(services = {}) {
   return app;
 }
 
+import { setupWatchPartyServer } from './src/services/watchParty.js';
+
 // ── Boot Logic — only runs when executed directly ─────────────────────────────
 
-async function main() {
+export async function startServer(portOverride) {
   console.log('[boot] Streambert Backend starting...');
 
   const validation = await validateConfig();
@@ -112,23 +134,38 @@ async function main() {
     for (const e of validation.errors) {
       console.error(`[boot] ✗ ${e}`);
     }
-    process.exit(1);
+    const fs = await import('node:fs');
+    fs.writeFileSync('C:\\Users\\amvbl\\.gemini\\antigravity-ide\\brain\\89dfe4cd-177f-4ad4-9415-e496b4a94912\\boot_error.log', JSON.stringify(validation.errors, null, 2));
+    throw new Error('Config validation failed: ' + validation.errors.join(', '));
   }
 
   const app = createApp();
-  const server = app.listen(config.PORT, '127.0.0.1', () => {
-    console.log(`[boot] Listening on 127.0.0.1:${config.PORT}`);
-  });
+  const portToUse = portOverride !== undefined ? portOverride : config.PORT;
 
-  // Graceful shutdown
-  const shutdown = () => {
-    console.log('[shutdown] Shutting down...');
-    server.close(() => process.exit(0));
-    // Force exit after 10s if connections hang
-    setTimeout(() => process.exit(1), 10000).unref();
-  };
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  return new Promise((resolve) => {
+    const server = app.listen(portToUse, '127.0.0.1', () => {
+      const address = server.address();
+      console.log(`[boot] Listening on 127.0.0.1:${address.port}`);
+      resolve({ server, port: address.port, app });
+    });
+
+    // Attach Socket.IO
+    setupWatchPartyServer(server);
+
+    // Graceful shutdown
+    const shutdown = () => {
+      console.log('[shutdown] Shutting down...');
+      server.close(() => process.exit(0));
+      // Force exit after 10s if connections hang
+      setTimeout(() => process.exit(1), 10000).unref();
+    };
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+  });
+}
+
+async function main() {
+  await startServer();
 }
 
 // ── Entrypoint Guard ──────────────────────────────────────────────────────────
