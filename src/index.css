@@ -196,3 +196,11 @@ h1, h2, h3, h4, h5, h6, .display-type {
     filter: blur(0);
   }
 }
+
+/* Custom Form Elements */
+select option {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-family: inherit;
+  padding: 0.5rem;
+}
