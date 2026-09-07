@@ -123,6 +123,12 @@ h1, h2, h3, h4, h5, h6, .display-type {
   padding: 0 var(--pad-x);
 }
 
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 0px;
+  display: none;
+}
+
 /* Full bleed utility for breaking out of container */
 .full-bleed {
   width: 100vw;
