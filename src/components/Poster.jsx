@@ -128,10 +128,13 @@ export default function Poster({
           color: 'var(--text-primary)',
           fontFamily: 'Oswald, sans-serif',
           textTransform: 'uppercase',
-          fontSize: isHero ? '2rem' : '1.1rem',
+          fontSize: isHero ? '2.5rem' : '1rem',
           lineHeight: 1.1,
-          wordWrap: 'break-word',
-          width: '100%'
+          width: '100%',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden'
         }}>
           {title}
         </h3>

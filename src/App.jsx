@@ -74,13 +74,10 @@ function App() {
   const navigate = useNavigate();
   const isHome = location.pathname === '/';
 
-  if (!appLoading && !activeProfile) {
-    return <ProfileSelect onProfileSelected={setActiveProfile} />;
-  }
-
   return (
     <div className="app-shell">
       {/* Premium navigation bar */}
+      {activeProfile && (
       <nav 
         className="glass-panel"
         style={{
@@ -146,19 +143,24 @@ function App() {
           })}
         </div>
       </nav>
+      )}
 
-      <main>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/anime" element={<Anime />} />
-          <Route path="/anime/:id" element={<AnimeDetail />} />
-          <Route path="/search" element={<Search />} />
-          <Route path="/library" element={<Library />} />
-          <Route path="/downloads" element={<Downloads />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/title/:type/:id" element={<TitleDetail />} />
-        </Routes>
-      </main>
+      {!activeProfile ? (
+        <ProfileSelect onProfileSelected={setActiveProfile} />
+      ) : (
+        <main>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/anime" element={<Anime />} />
+            <Route path="/anime/:id" element={<AnimeDetail />} />
+            <Route path="/search" element={<Search />} />
+            <Route path="/library" element={<Library />} />
+            <Route path="/downloads" element={<Downloads />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/title/:type/:id" element={<TitleDetail />} />
+          </Routes>
+        </main>
+      )}
       
       {appLoading && <SplashScreen onComplete={() => setAppLoading(false)} />}
     </div>
