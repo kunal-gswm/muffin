@@ -6,7 +6,7 @@
 
 ## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/info.svg" width="24" height="24" /> Overview
 
-**Muffin TV** (formerly streambert-backend) is a standalone REST API and Electron-based desktop application designed for aggregating media metadata and streams locally. It provides a robust backend to manage TMDB data, subtitles, downloads, anime resolving, watch parties, and more. 
+**Muffin TV** is a standalone REST API and Electron-based desktop application designed for aggregating media metadata and streams locally. It provides a robust backend to manage TMDB data, subtitles, downloads, anime resolving, watch parties, and more. 
 
 ## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/sparkles.svg" width="24" height="24" /> Features
 
