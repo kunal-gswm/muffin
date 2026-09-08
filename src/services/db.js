@@ -1,105 +1,89 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
 
-class MockDatabase {
-  constructor(dbPath) {
-    this.path = dbPath.replace('.db', '.json');
-    this.table = [];
-    if (fs.existsSync(this.path)) {
-      try { this.table = JSON.parse(fs.readFileSync(this.path, 'utf8')); } catch (e) {}
-    }
-  }
+let dbPromise;
 
-  save() {
-    fs.writeFileSync(this.path, JSON.stringify(this.table, null, 2), 'utf8');
+export async function initDb() {
+  if (dbPromise) return dbPromise;
+  
+  const dataDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
   }
+  
+  const dbPath = path.join(dataDir, 'muffin.db');
+  
+  dbPromise = open({
+    filename: dbPath,
+    driver: sqlite3.Database
+  }).then(async (db) => {
+    console.log('[db] Initialized native sqlite3 database (async)');
 
-  prepare(sql) {
-    return {
-      all: (...args) => {
-        if (sql.includes('SELECT payload, last_updated')) {
-          const profileId = args[0];
-          return this.table
-            .filter(r => r.profile_id === profileId)
-            .sort((a, b) => new Date(b.last_updated) - new Date(a.last_updated))
-            .slice(0, 100);
-        }
-        return [];
-      },
-      get: (...args) => {
-        if (sql.includes('SELECT payload')) {
-          const [profileId, type, id] = args;
-          const match = this.table
-            .filter(r => r.profile_id === profileId && r.media_type === type && r.media_id === String(id))
-            .sort((a, b) => new Date(b.last_updated) - new Date(a.last_updated))[0];
-          return match || undefined;
-        }
-        return undefined;
-      },
-      run: (...args) => {
-        if (sql.includes('DELETE FROM')) {
-          const isComplex = args.length === 5;
-          if (isComplex) {
-            const [profileId, type, id, season, episode] = args;
-            this.table = this.table.filter(r => !(r.profile_id === profileId && r.media_type === type && r.media_id === String(id) && r.season === season && r.episode === episode));
-          } else {
-            const [profileId, type, id] = args;
-            this.table = this.table.filter(r => !(r.profile_id === profileId && r.media_type === type && r.media_id === String(id)));
-          }
-          this.save();
-          return { changes: 1 };
-        }
-        if (sql.includes('INSERT INTO')) {
-          const [profile_id, media_type, media_id, season, episode, progress, duration, payload] = args;
-          const existing = this.table.find(r => r.profile_id === profile_id && r.media_type === media_type && r.media_id === String(media_id) && r.season === season && r.episode === episode);
-          const now = new Date().toISOString();
-          if (existing) {
-            existing.progress = progress;
-            existing.duration = duration;
-            existing.payload = payload;
-            existing.last_updated = now;
-          } else {
-            this.table.push({ profile_id, media_type, media_id: String(media_id), season, episode, progress, duration, payload, last_updated: now });
-          }
-          this.save();
-          return { changes: 1 };
-        }
-        return { changes: 0 };
-      }
-    };
-  }
+    // Create Tables
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS watch_progress (
+        profile_id TEXT NOT NULL,
+        media_type TEXT NOT NULL,
+        media_id TEXT NOT NULL,
+        season INTEGER DEFAULT 0,
+        episode INTEGER DEFAULT 0,
+        progress REAL DEFAULT 0,
+        duration REAL DEFAULT 0,
+        payload TEXT,
+        last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (profile_id, media_type, media_id, season, episode)
+      );
 
-  exec(sql) {
-    // Mock implementation for table creation
-    return this;
-  }
+      CREATE TABLE IF NOT EXISTS favorites (
+        profile_id TEXT NOT NULL,
+        media_type TEXT NOT NULL,
+        media_id TEXT NOT NULL,
+        added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (profile_id, media_type, media_id)
+      );
 
-  pragma(sql) {
-    return this;
-  }
+      CREATE TABLE IF NOT EXISTS settings (
+        profile_id TEXT NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT,
+        PRIMARY KEY (profile_id, key)
+      );
+
+      CREATE TABLE IF NOT EXISTS downloads (
+        id TEXT PRIMARY KEY,
+        media_type TEXT NOT NULL,
+        media_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        progress REAL DEFAULT 0,
+        file_path TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS local_media (
+        file_path TEXT PRIMARY KEY,
+        tmdb_id TEXT NOT NULL,
+        media_type TEXT NOT NULL,
+        quality TEXT,
+        added_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Create Indexes
+    await db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_watch_progress_profile_updated ON watch_progress(profile_id, last_updated DESC);
+      CREATE INDEX IF NOT EXISTS idx_favorites_profile ON favorites(profile_id);
+      CREATE INDEX IF NOT EXISTS idx_downloads_status ON downloads(status);
+      CREATE INDEX IF NOT EXISTS idx_local_media_tmdb ON local_media(tmdb_id, media_type);
+    `);
+
+    return db;
+  });
+
+  return dbPromise;
 }
 
-let db;
-
-export function initDb() {
-  if (db) return db;
-  try {
-    const dataDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    
-    const dbPath = path.join(dataDir, 'muffin.db');
-    db = new MockDatabase(dbPath);
-    console.log('[db] Initialized pure-JS mock SQLite database to bypass native ABI crash on Windows');
-  } catch (err) {
-    console.error('[db] Initialization failed:', err);
-    throw err;
-  }
-  return db;
-}
-
-export function getDb() {
-  if (!db) return initDb();
-  return db;
+export async function getDb() {
+  if (!dbPromise) return initDb();
+  return dbPromise;
 }

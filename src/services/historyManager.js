@@ -2,16 +2,16 @@ import { getDb } from './db.js';
 
 const DEFAULT_PROFILE = 'default';
 
-export function getHistory(profileId = DEFAULT_PROFILE) {
+export async function getHistory(profileId = DEFAULT_PROFILE) {
   try {
-    const db = getDb();
-    const rows = db.prepare(`
+    const db = await getDb();
+    const rows = await db.all(`
       SELECT payload, last_updated 
       FROM watch_progress 
       WHERE profile_id = ? 
       ORDER BY last_updated DESC 
       LIMIT 100
-    `).all(profileId);
+    `, [profileId]);
     
     return rows.map(r => ({
       ...JSON.parse(r.payload),
@@ -23,12 +23,11 @@ export function getHistory(profileId = DEFAULT_PROFILE) {
   }
 }
 
-export function updateProgress(payload, profileId = DEFAULT_PROFILE) {
+export async function updateProgress(payload, profileId = DEFAULT_PROFILE) {
   if (!payload.id || !payload.type) return;
 
-  const db = getDb();
+  const db = await getDb();
   
-  // If title is more than 95% complete or within 30s of the end, remove it from Continue Watching
   const isComplete = payload.duration > 0 && (payload.currentTime >= payload.duration * 0.95 || payload.duration - payload.currentTime <= 30);
   
   const season = payload.season || 0;
@@ -36,15 +35,15 @@ export function updateProgress(payload, profileId = DEFAULT_PROFILE) {
 
   try {
     if (isComplete) {
-      db.prepare(`
+      await db.run(`
         DELETE FROM watch_progress 
         WHERE profile_id = ? AND media_type = ? AND media_id = ? AND season = ? AND episode = ?
-      `).run(profileId, payload.type, String(payload.id), season, episode);
+      `, [profileId, payload.type, String(payload.id), season, episode]);
       
       return { status: 'completed' };
     }
 
-    db.prepare(`
+    await db.run(`
       INSERT INTO watch_progress (profile_id, media_type, media_id, season, episode, progress, duration, payload, last_updated)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(profile_id, media_type, media_id, season, episode) DO UPDATE SET
@@ -52,7 +51,7 @@ export function updateProgress(payload, profileId = DEFAULT_PROFILE) {
         duration = excluded.duration,
         payload = excluded.payload,
         last_updated = CURRENT_TIMESTAMP
-    `).run(
+    `, [
       profileId, 
       payload.type, 
       String(payload.id), 
@@ -61,7 +60,7 @@ export function updateProgress(payload, profileId = DEFAULT_PROFILE) {
       payload.currentTime, 
       payload.duration, 
       JSON.stringify(payload)
-    );
+    ]);
 
     return { ...payload, updatedAt: Date.now() };
   } catch (err) {
@@ -70,15 +69,15 @@ export function updateProgress(payload, profileId = DEFAULT_PROFILE) {
   }
 }
 
-export function getProgress(id, type, profileId = DEFAULT_PROFILE) {
+export async function getProgress(id, type, profileId = DEFAULT_PROFILE) {
   try {
-    const db = getDb();
-    const row = db.prepare(`
+    const db = await getDb();
+    const row = await db.get(`
       SELECT payload 
       FROM watch_progress 
       WHERE profile_id = ? AND media_type = ? AND media_id = ? 
       ORDER BY last_updated DESC LIMIT 1
-    `).get(profileId, type, String(id));
+    `, [profileId, type, String(id)]);
     
     if (row) {
       return JSON.parse(row.payload);
@@ -90,13 +89,13 @@ export function getProgress(id, type, profileId = DEFAULT_PROFILE) {
   }
 }
 
-export function removeHistory(id, type, profileId = DEFAULT_PROFILE) {
+export async function removeHistory(id, type, profileId = DEFAULT_PROFILE) {
   try {
-    const db = getDb();
-    db.prepare(`
+    const db = await getDb();
+    await db.run(`
       DELETE FROM watch_progress 
       WHERE profile_id = ? AND media_type = ? AND media_id = ?
-    `).run(profileId, type, String(id));
+    `, [profileId, type, String(id)]);
     return true;
   } catch (err) {
     console.error('[historyManager] Failed to remove history:', err);

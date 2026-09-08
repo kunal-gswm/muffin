@@ -14,11 +14,12 @@
     "build:exe": "electron-builder"
   },
   "dependencies": {
-    "better-sqlite3": "^13.0.3",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jimp": "^0.16.13",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1"
   },
   "optionalDependencies": {
     "puppeteer": "^23.11.0"
@@ -35,7 +36,7 @@
   "build": {
     "appId": "com.muffintv.app",
     "productName": "Muffin TV",
-    "npmRebuild": false,
+    "npmRebuild": true,
     "directories": {
       "output": "dist-electron"
     },

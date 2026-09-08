@@ -4,7 +4,10 @@ import path from 'node:path';
 import { exec } from 'node:child_process';
 import os from 'node:os';
 
-export function createSettingsRouter() {
+import { scanLocalDirectory } from '../services/localScanner.js';
+import { authenticate, logout, getStatus } from '../services/traktClient.js';
+
+export function createSettingsRouter(tmdbClient) {
   const router = Router();
   const envPath = process.env.PORTABLE_EXECUTABLE_DIR 
     ? path.join(process.env.PORTABLE_EXECUTABLE_DIR, '.env') 
@@ -120,6 +123,37 @@ $f.SelectedPath
       console.error('Folder picker error:', err);
       res.status(500).json({ error: 'Failed to open folder picker' });
     }
+  });
+
+  // POST /api/settings/scan-local — scan local directory for media
+  router.post('/scan-local', async (req, res) => {
+    try {
+      const { path: dirPath } = req.body;
+      if (!dirPath) return res.status(400).json({ error: 'path is required' });
+      
+      const results = await scanLocalDirectory(dirPath, tmdbClient);
+      res.json(results);
+    } catch (err) {
+      console.error('Scanner error:', err);
+      res.status(500).json({ error: 'Scan failed' });
+    }
+  });
+
+  // GET /api/settings/trakt - get auth status
+  router.get('/trakt', (req, res) => {
+    res.json(getStatus());
+  });
+
+  // POST /api/settings/trakt/login
+  router.post('/trakt/login', (req, res) => {
+    authenticate('mock_token_' + Date.now());
+    res.json(getStatus());
+  });
+
+  // POST /api/settings/trakt/logout
+  router.post('/trakt/logout', (req, res) => {
+    logout();
+    res.json(getStatus());
   });
 
   return router;

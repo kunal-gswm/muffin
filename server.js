@@ -75,7 +75,7 @@ export function createApp(services = {}) {
   app.use('/api/downloads', createDownloadsRouter());
   app.use('/api/history', createHistoryRouter());
   app.use('/api/library', createLibraryRouter());
-  app.use('/api/settings', createSettingsRouter());
+  app.use('/api/settings', createSettingsRouter(tmdbClient));
   app.use('/api/profiles', createProfilesRouter());
   app.use('/api', createMiscRouter(tmdbClient));
 
