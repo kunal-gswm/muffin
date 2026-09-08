@@ -4,22 +4,22 @@
   <p><strong>A Standalone Local Media Metadata & Stream Aggregator</strong></p>
 </div>
 
-## 📌 Overview
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/info.svg" width="24" height="24" /> Overview
 
 **Muffin TV** (formerly streambert-backend) is a standalone REST API and Electron-based desktop application designed for aggregating media metadata and streams locally. It provides a robust backend to manage TMDB data, subtitles, downloads, anime resolving, watch parties, and more. 
 
-## ✨ Features
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/sparkles.svg" width="24" height="24" /> Features
 
-- **🎬 Media Aggregation:** Fetch and organize movies and TV shows using the TMDB API.
-- **📺 Stream Sources:** Aggregate and manage streaming sources seamlessly.
-- **🎌 Anime Support:** Built-in resolver and dedicated API for Anime content.
-- **📝 Subtitles:** Automatic fetching and integration with SUBDL and WYZIE.
-- **📥 Downloads Manager:** Native integration with `N_m3u8DL-RE` for robust media downloading.
-- **🍿 Watch Party:** Real-time synchronization via Socket.IO for watching with friends.
-- **🗃️ Library & History:** Keep track of your watch history, user profiles, and personal library.
-- **🌐 Standalone & Portable:** Runs entirely locally via `127.0.0.1` and can be packaged as a portable executable.
+- **<img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/film.svg" width="18" height="18" /> Media Aggregation:** Fetch and organize movies and TV shows using the TMDB API.
+- **<img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/tv.svg" width="18" height="18" /> Stream Sources:** Aggregate and manage streaming sources seamlessly.
+- **<img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/play-circle.svg" width="18" height="18" /> Anime Support:** Built-in resolver and dedicated API for Anime content.
+- **<img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/subtitles.svg" width="18" height="18" /> Subtitles:** Automatic fetching and integration with SUBDL and WYZIE.
+- **<img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/download.svg" width="18" height="18" /> Downloads Manager:** Native integration with `N_m3u8DL-RE` for robust media downloading.
+- **<img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/users.svg" width="18" height="18" /> Watch Party:** Real-time synchronization via Socket.IO for watching with friends.
+- **<img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/library.svg" width="18" height="18" /> Library & History:** Keep track of your watch history, user profiles, and personal library.
+- **<img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/box.svg" width="18" height="18" /> Standalone & Portable:** Runs entirely locally via `127.0.0.1` and can be packaged as a portable executable.
 
-## 🚀 Getting Started
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/rocket.svg" width="24" height="24" /> Getting Started
 
 ### Prerequisites
 - [Node.js](https://nodejs.org/) (v22.0.0 or higher)
@@ -71,13 +71,13 @@ npm run build:exe
 ```
 The output will be available in the `dist-electron` folder.
 
-## 🛠️ Tech Stack
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/layers.svg" width="24" height="24" /> Tech Stack
 
 - **Backend:** Node.js, Express, Socket.IO
 - **Database:** SQLite
 - **Desktop Environment:** Electron, Puppeteer (optional)
 - **Utilities:** dotenv, jimp
 
-## 📝 License
+## <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/file-text.svg" width="24" height="24" /> License
 
 This project is intended for personal and local use.
