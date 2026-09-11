@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import AsymmetricGrid from '../../components/AsymmetricGrid';
+import HeroBanner from '../../components/HeroBanner';
 import ContinueWatchingRow from '../../components/ContinueWatchingRow';
 import { applyDynamicTheme, resetTheme } from '../../utils/ThemeEngine';
 
@@ -8,6 +9,8 @@ export default function Home() {
   const [data, setData] = useState({
     continueWatching: [],
     recommendations: [],
+    categoryRecommendations: [],
+    categoryName: '',
     trendingMovies: [],
     trendingTv: [],
     popularMovies: [],
@@ -48,6 +51,25 @@ export default function Home() {
               } catch (recErr) {
                 console.error('Failed to fetch recommendations', recErr);
               }
+
+              let categoryRecommendations = [];
+              let categoryName = '';
+              try {
+                const details = await api.tmdb.getDetails(lastWatched.media_type, lastWatched.id);
+                if (details && details.genres && details.genres.length > 0) {
+                  const topGenre = details.genres[0];
+                  categoryName = topGenre.name;
+                  const discRes = await api.tmdb.discover(lastWatched.media_type, `with_genres=${topGenre.id}&page=1`);
+                  if (discRes && discRes.results) {
+                    categoryRecommendations = discRes.results.filter(r => r.id !== lastWatched.id).map(r => ({
+                      ...r,
+                      media_type: lastWatched.media_type
+                    }));
+                  }
+                }
+              } catch (catErr) {
+                console.error('Failed to fetch category recommendations', catErr);
+              }
             }
           }
         } catch (e) {
@@ -85,6 +107,8 @@ export default function Home() {
         setData({
           continueWatching,
           recommendations,
+          categoryRecommendations: typeof categoryRecommendations !== 'undefined' ? categoryRecommendations : [],
+          categoryName: typeof categoryName !== 'undefined' ? categoryName : '',
           trendingMovies: movieRes.results || [],
           trendingTv: tvRes.results || [],
           popularMovies: popularRes.results || [],
@@ -179,7 +203,12 @@ export default function Home() {
 
   return (
     <div className="page-transition">
-      <div className="container" style={{ paddingTop: '8rem', paddingBottom: '4rem' }}>
+      {/* Hero Banner with the top trending movie */}
+      {data.trendingMovies.length > 0 && (
+        <HeroBanner item={data.trendingMovies[0]} type="movie" />
+      )}
+
+      <div className="container" style={{ paddingTop: data.trendingMovies.length > 0 ? '0' : '8rem', paddingBottom: '4rem' }}>
         
         {data.continueWatching.length > 0 && (
           <section style={{ marginBottom: '6rem' }}>
@@ -196,7 +225,15 @@ export default function Home() {
           )
         )}
 
-        {renderSection('Trending Films', data.trendingMovies, 'movie')}
+        {data.categoryRecommendations && data.categoryRecommendations.length > 0 && (
+          renderSection(
+            `More in ${data.categoryName}`, 
+            data.categoryRecommendations, 
+            data.continueWatching[0]?.media_type || 'movie'
+          )
+        )}
+
+        {renderSection('Trending Films', data.trendingMovies.length > 0 ? data.trendingMovies.slice(1) : [], 'movie')}
         {renderSection('Trending Series', data.trendingTv, 'tv')}
         {renderSection('Famous & Popular', data.popularMovies, 'movie')}
         {renderSection('Heart-Pounding Thrillers', data.thrillerMovies, 'movie')}

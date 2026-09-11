@@ -135,9 +135,10 @@ export default function HeroBanner({ item, type = 'movie' }) {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
-        paddingTop: '4rem'
+        paddingTop: '4rem',
+        pointerEvents: 'none' // Let clicks pass through the overlay...
       }}>
-        <div style={{ maxWidth: '600px', zIndex: 10 }}>
+        <div style={{ maxWidth: '600px', zIndex: 10, pointerEvents: 'auto' /* ...but catch them on the content */ }}>
           {/* Tag */}
           <div style={{ 
             display: 'inline-block', 

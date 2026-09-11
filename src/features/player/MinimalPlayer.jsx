@@ -397,16 +397,14 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
         justifyContent: 'space-between',
         padding: '2rem'
       }}>
-        {/* Top bar */}
-        <div style={{ display: 'flex', justifyContent: isEmbed ? 'space-between' : 'space-between', pointerEvents: 'none' }}>
-          {!isEmbed ? (
-            <h2 className="text-h2" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)', pointerEvents: 'auto' }}>{title}</h2>
-          ) : (
-            <div style={{ flex: 1 }} /> 
+        {/* Top bar (for embedded close button or title) */}
+        <div style={{ display: 'flex', justifyContent: isEmbed ? 'flex-end' : 'center', pointerEvents: 'none' }}>
+          {!isEmbed && (
+            <h2 className="text-h2" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)', pointerEvents: 'auto', textAlign: 'center' }}>{title}</h2>
           )}
           
           <div style={{ display: 'flex', gap: '1rem', pointerEvents: 'auto', alignItems: 'center' }}>
-            {hasNextEpisode && (
+            {hasNextEpisode && !isEmbed && (
               <button 
                 onClick={() => {
                   if (countdownInterval.current) clearInterval(countdownInterval.current);
@@ -438,7 +436,7 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
               </button>
             )}
           
-          {isEmbed ? (
+          {isEmbed && (
             <button 
               onClick={onClose} 
               style={{ 
@@ -472,21 +470,39 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
             >
               ✕
             </button>
-          ) : (
+          )}
+          </div>
+        </div>
+        
+        {/* Top-Center Close Button for Native Player */}
+        {!isEmbed && (
+          <div style={{ position: 'absolute', top: '2rem', left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto' }}>
             <button 
               onClick={onClose} 
               style={{ 
-                pointerEvents: 'auto',
                 fontSize: '2rem', 
-                textShadow: '0 2px 10px rgba(0,0,0,0.5)',
-                padding: '0.5rem'
+                fontWeight: 'bold',
+                textShadow: '0 2px 10px rgba(0,0,0,0.8)',
+                padding: '0.5rem 1.5rem',
+                color: 'rgba(255,255,255,0.6)',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.color = '#fff';
+                e.currentTarget.style.transform = 'scale(1.1)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+                e.currentTarget.style.transform = 'scale(1)';
               }}
             >
               ✕
             </button>
-          )}
           </div>
-        </div>
+        )}
 
         {/* Bottom bar - Only show for native video, NOT embeds */}
         {!isEmbed && (
