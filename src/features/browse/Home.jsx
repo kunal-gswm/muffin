@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
-import GalleryGrid from '../../components/GalleryGrid';
-import HeroBanner from '../../components/HeroBanner';
+import AsymmetricGrid from '../../components/AsymmetricGrid';
 import ContinueWatchingRow from '../../components/ContinueWatchingRow';
 import { applyDynamicTheme, resetTheme } from '../../utils/ThemeEngine';
 
@@ -173,19 +172,14 @@ export default function Home() {
     return (
       <section style={{ marginBottom: '6rem' }}>
         <h2 className="text-h2" style={{ marginBottom: '2rem' }}>{title}</h2>
-        <GalleryGrid items={items} type={type} />
+        <AsymmetricGrid items={items} type={type} />
       </section>
     );
   };
 
   return (
     <div className="page-transition">
-      {/* Hero Banner with the top trending movie */}
-      {data.trendingMovies.length > 0 && (
-        <HeroBanner item={data.trendingMovies[0]} type="movie" />
-      )}
-
-      <div className="container" style={{ paddingTop: data.trendingMovies.length > 0 ? '0' : '8rem', paddingBottom: '4rem' }}>
+      <div className="container" style={{ paddingTop: '8rem', paddingBottom: '4rem' }}>
         
         {data.continueWatching.length > 0 && (
           <section style={{ marginBottom: '6rem' }}>
@@ -202,7 +196,7 @@ export default function Home() {
           )
         )}
 
-        {renderSection('Trending Films', data.trendingMovies.length > 0 ? data.trendingMovies.slice(1) : [], 'movie')}
+        {renderSection('Trending Films', data.trendingMovies, 'movie')}
         {renderSection('Trending Series', data.trendingTv, 'tv')}
         {renderSection('Famous & Popular', data.popularMovies, 'movie')}
         {renderSection('Heart-Pounding Thrillers', data.thrillerMovies, 'movie')}

@@ -60,6 +60,24 @@ export const api = {
     selectFolder: () => fetchApi('/settings/select-folder', { method: 'POST' }),
     scanLocal: (path) => fetchApi('/settings/scan-local', { method: 'POST', body: JSON.stringify({ path }) })
   },
+  subtitles: {
+    search: (tmdbId, type, season, episode) => {
+      const qs = new URLSearchParams({ tmdbId, type });
+      if (season) qs.append('season', season);
+      if (episode) qs.append('episode', episode);
+      return fetchApi(`/subtitles/search?${qs.toString()}`);
+    },
+    // For download, we need the raw text, so we use fetch directly since fetchApi expects JSON
+    downloadAsVtt: async (url) => {
+      const qs = new URLSearchParams({ url });
+      const res = await fetch(`${BASE_URL}/subtitles/download?${qs.toString()}`);
+      if (!res.ok) throw new Error('Failed to download subtitle');
+      const text = await res.text();
+      // Extremely basic SRT to VTT conversion
+      const vtt = 'WEBVTT\n\n' + text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+      return URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
+    }
+  },
   trakt: {
     getStatus: () => fetchApi('/settings/trakt'),
     login: () => fetchApi('/settings/trakt/login', { method: 'POST' }),

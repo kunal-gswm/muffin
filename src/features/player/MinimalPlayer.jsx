@@ -5,7 +5,9 @@ import SharpProgress from '../../components/SharpProgress';
 import ChatBox from '../watchparty/ChatBox';
 import { useWatchParty } from '../../hooks/useWatchParty';
 
-export default function MinimalPlayer({ src, sources, defaultSource, title, isEmbed, onClose, initialTime, onTimeUpdate, hasNextEpisode, onNextEpisode, partyId }) {
+import { api } from '../../api/client';
+
+export default function MinimalPlayer({ src, sources, defaultSource, title, isEmbed, onClose, initialTime, onTimeUpdate, hasNextEpisode, onNextEpisode, partyId, tmdbId, type, season, episode }) {
   const [idle, setIdle] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [activeSource, setActiveSource] = useState(defaultSource?.url || src);
@@ -25,6 +27,44 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
   const volumeDebounceRef = useRef(null);
   const [progressPercent, setProgressPercent] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
+
+  // Subtitles state
+  const [subtitles, setSubtitles] = useState([]);
+  const [activeSubtitleUrl, setActiveSubtitleUrl] = useState('');
+  const [activeSubtitleObj, setActiveSubtitleObj] = useState(null);
+  const [settingsTab, setSettingsTab] = useState('quality');
+
+  useEffect(() => {
+    async function loadSubs() {
+      if (!tmdbId || !type || isEmbed) return;
+      try {
+        const data = await api.subtitles.search(tmdbId, type, season, episode);
+        if (data && data.subtitles && data.subtitles.length > 0) {
+          setSubtitles(data.subtitles);
+        }
+      } catch (err) {
+        console.error('Failed to load subtitles', err);
+      }
+    }
+    loadSubs();
+  }, [tmdbId, type, season, episode, isEmbed]);
+
+  const handleSubtitleSelect = async (sub) => {
+    if (!sub) {
+      setActiveSubtitleUrl('');
+      setActiveSubtitleObj(null);
+      return;
+    }
+    try {
+      const vttUrl = await api.subtitles.downloadAsVtt(sub.url);
+      setActiveSubtitleUrl(vttUrl);
+      setActiveSubtitleObj(sub);
+      setShowSettings(false);
+    } catch(e) {
+      console.error(e);
+      alert('Failed to load subtitle file');
+    }
+  };
 
   const handlePiP = async () => {
     if (!videoRef.current) return;
@@ -67,8 +107,15 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
           break;
         case 'm':
           e.preventDefault();
-          vid.muted = !vid.muted;
-          setVolume(vid.muted ? 0 : vid.volume);
+          if (vid.volume > 0 || volume > 0) {
+            vid.volume = 0;
+            vid.muted = true;
+            setVolume(0);
+          } else {
+            vid.volume = 1;
+            vid.muted = false;
+            setVolume(1);
+          }
           break;
         case 'f':
           e.preventDefault();
@@ -264,14 +311,78 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
           allow="autoplay; fullscreen"
         />
       ) : (
-        <video 
-          ref={videoRef}
-          src={activeSource} 
-          controls={false}
-          autoPlay
-          onTimeUpdate={handleTimeUpdate}
-          style={{ width: '100%', height: '100%' }} 
-        />
+        <div style={{ position: 'relative', width: '100%', height: '100%', zIndex: 1 }}>
+          <video 
+            ref={videoRef}
+            src={activeSource} 
+            controls={false}
+            autoPlay
+            onTimeUpdate={handleTimeUpdate}
+            crossOrigin="anonymous"
+            style={{ 
+              width: '100%', height: '100%',
+              transition: 'all 0.8s cubic-bezier(0.25, 1, 0.5, 1)', 
+              transform: showUpNext ? 'scale(0.3) translate(5vw, 5vh)' : 'none',
+              transformOrigin: 'top left',
+              borderRadius: showUpNext ? '16px' : '0',
+              boxShadow: showUpNext ? '0 20px 40px rgba(0,0,0,0.5)' : 'none'
+            }} 
+          >
+            {activeSubtitleUrl && (
+              <track 
+                src={activeSubtitleUrl} 
+                kind="subtitles" 
+                srcLang={activeSubtitleObj?.lang || 'en'} 
+                label="Subtitle" 
+                default 
+              />
+            )}
+          </video>
+        </div>
+      )}
+
+      {/* Cinematic Up Next Overlay Background */}
+      {showUpNext && !isEmbed && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 0, // Behind the video wrapper
+          backgroundColor: '#0a0a0a',
+          backgroundImage: 'radial-gradient(circle at center, #1a1a1a 0%, #000 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          animation: 'fadeIn 1s forwards'
+        }}>
+          <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <h3 style={{ fontSize: '2rem', color: 'var(--text-metadata)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'Oswald, sans-serif' }}>Up Next</h3>
+            <h2 style={{ fontSize: '4rem', color: 'white', margin: '1rem 0', fontFamily: 'Oswald, sans-serif' }}>Next Episode</h2>
+            <button
+              onClick={() => {
+                clearInterval(countdownInterval.current);
+                onNextEpisode();
+              }}
+              style={{
+                padding: '1.5rem 4rem',
+                backgroundColor: 'white',
+                color: 'black',
+                border: 'none',
+                borderRadius: '50px',
+                fontSize: '1.5rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                marginTop: '2rem',
+                transition: 'transform 0.2s',
+                fontFamily: 'Oswald, sans-serif',
+                textTransform: 'uppercase'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              Play in {upNextCountdown}s
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Auto-hiding Chrome */}
@@ -440,11 +551,10 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
                     role="slider"
                     aria-label="Volume"
                     min="0"
-                    max="1"
-                    step="0.05"
-                    value={volume}
+                    max="100"
+                    value={volume * 100}
                     onChange={(e) => {
-                      const v = parseFloat(e.target.value);
+                      const v = parseFloat(e.target.value) / 100;
                       setVolume(v);
                       if (videoRef.current) {
                         videoRef.current.volume = v;
@@ -504,49 +614,7 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
         )}
       </div>
 
-      {/* Up Next Overlay Button */}
-      {showUpNext && !isEmbed && (
-        <div style={{
-          position: 'absolute',
-          bottom: '8rem',
-          right: '2rem',
-          pointerEvents: 'auto',
-          zIndex: 100000
-        }}>
-          <button
-            onClick={() => {
-              clearInterval(countdownInterval.current);
-              onNextEpisode();
-            }}
-            style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              color: 'white',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: '8px',
-              padding: '1rem 2rem',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              backdropFilter: 'blur(10px)',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.5)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-            }}
-          >
-            <span style={{ fontSize: '0.8rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '1px' }}>Up Next</span>
-            <span style={{ fontSize: '1.2rem', fontWeight: 'bold', marginTop: '0.2rem' }}>
-              Playing in {upNextCountdown}s
-            </span>
-          </button>
-        </div>
-      )}
+      {/* Old Up Next Overlay Button removed in favor of Cinematic view above */}
 
       {/* Settings Modal (Overlay) */}
       {showSettings && !isEmbed && hasSettings && (
@@ -576,21 +644,35 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
             padding: '0.5rem 1rem'
           }}>
             <div style={{ display: 'flex', gap: '1.25rem' }}>
-              {/* Quality Tab (Active) */}
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', paddingBottom: '0.25rem' }}>
+              {/* Quality Tab */}
+              <button 
+                onClick={() => setSettingsTab('quality')}
+                style={{ 
+                  position: 'relative', display: 'flex', alignItems: 'center', paddingBottom: '0.25rem',
+                  opacity: settingsTab === 'quality' ? 1 : 0.6,
+                  background: 'none', border: 'none', cursor: 'pointer'
+                }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
                   <path d="M3,22 L3,16 L7,16 L7,22 L3,22 Z M10,22 L10,10 L14,10 L14,22 L10,22 Z M17,22 L17,2 L21,2 L21,22 L17,22 Z" />
                 </svg>
-                {/* Active Underline */}
-                <div style={{ position: 'absolute', bottom: -8, left: -4, right: -4, height: 2, backgroundColor: 'white' }} />
-              </div>
+                {settingsTab === 'quality' && <div style={{ position: 'absolute', bottom: -8, left: -4, right: -4, height: 2, backgroundColor: 'white' }} />}
+              </button>
               
               {/* CC Tab */}
-              <div style={{ display: 'flex', alignItems: 'center', opacity: 0.6 }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                  <path d="M19,4 L5,4 C3.89,4 3,4.9 3,6 L3,18 C3,19.1 3.89,20 5,20 L19,20 C20.1,20 21,19.1 21,18 L21,6 C21,4.9 20.1,4 19,4 Z M11,15 L7.5,15 L7.5,13.5 L9.5,13.5 L9.5,12 L7.5,12 L7.5,9 L11,9 L11,10.5 L9,10.5 L9,13.5 L11,13.5 L11,15 Z M18,15 L14.5,15 L14.5,13.5 L16.5,13.5 L16.5,12 L14.5,12 L14.5,9 L18,9 L18,10.5 L16,10.5 L16,13.5 L18,13.5 L18,15 Z" />
-                </svg>
-              </div>
+              {subtitles.length > 0 && (
+                <button 
+                  onClick={() => setSettingsTab('cc')}
+                  style={{ 
+                    position: 'relative', display: 'flex', alignItems: 'center', paddingBottom: '0.25rem',
+                    opacity: settingsTab === 'cc' ? 1 : 0.6,
+                    background: 'none', border: 'none', cursor: 'pointer'
+                  }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                    <path d="M19,4 L5,4 C3.89,4 3,4.9 3,6 L3,18 C3,19.1 3.89,20 5,20 L19,20 C20.1,20 21,19.1 21,18 L21,6 C21,4.9 20.1,4 19,4 Z M11,15 L7.5,15 L7.5,13.5 L9.5,13.5 L9.5,12 L7.5,12 L7.5,9 L11,9 L11,10.5 L9,10.5 L9,13.5 L11,13.5 L11,15 Z M18,15 L14.5,15 L14.5,13.5 L16.5,13.5 L16.5,12 L14.5,12 L14.5,9 L18,9 L18,10.5 L16,10.5 L16,13.5 L18,13.5 L18,15 Z" />
+                  </svg>
+                  {settingsTab === 'cc' && <div style={{ position: 'absolute', bottom: -8, left: -4, right: -4, height: 2, backgroundColor: 'white' }} />}
+                </button>
+              )}
 
               {/* Speed Tab */}
               <div style={{ display: 'flex', alignItems: 'center', opacity: 0.6 }}>
@@ -615,9 +697,9 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
             </button>
           </div>
 
-          {/* Body Content - Quality List */}
+          {/* Body Content */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0', padding: '1rem 0', overflowY: 'auto' }}>
-            {displaySources.map((srcItem, i) => {
+            {settingsTab === 'quality' && displaySources.map((srcItem, i) => {
               const val = srcItem.id !== undefined ? srcItem.id : srcItem.url;
               const isSelected = activeSource === val;
               return (
@@ -652,6 +734,48 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
                 </button>
               );
             })}
+
+            {settingsTab === 'cc' && (
+              <>
+                <button
+                  onClick={() => handleSubtitleSelect(null)}
+                  style={{
+                    display: 'flex', alignItems: 'center', padding: '0.75rem 1rem', textAlign: 'left',
+                    width: '100%', backgroundColor: 'transparent', transition: 'background-color 0.2s ease',
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <div style={{ width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '0.5rem' }}>
+                    {!activeSubtitleUrl && <div style={{ width: '4px', height: '4px', backgroundColor: 'white', borderRadius: '50%' }} />}
+                  </div>
+                  <span style={{ fontWeight: !activeSubtitleUrl ? 600 : 400, color: 'white', fontSize: '0.95rem' }}>Off</span>
+                </button>
+
+                {subtitles.map((sub, i) => {
+                  const isSelected = activeSubtitleObj?.url === sub.url;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => handleSubtitleSelect(sub)}
+                      style={{
+                        display: 'flex', alignItems: 'center', padding: '0.75rem 1rem', textAlign: 'left',
+                        width: '100%', backgroundColor: 'transparent', transition: 'background-color 0.2s ease',
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <div style={{ width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '0.5rem' }}>
+                        {isSelected && <div style={{ width: '4px', height: '4px', backgroundColor: 'white', borderRadius: '50%' }} />}
+                      </div>
+                      <span style={{ fontWeight: isSelected ? 600 : 400, color: 'white', fontSize: '0.95rem' }}>
+                        {sub.lang.toUpperCase()} - {sub.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </div>
         </div>
       )}

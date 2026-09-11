@@ -177,6 +177,10 @@ export default function TitleDetail() {
           src={streamData.url} 
           title={streamData.title} 
           isEmbed={streamData.isEmbed}
+          tmdbId={id}
+          type={type}
+          season={season}
+          episode={episode}
           initialTime={progress?.currentTime || 0}
           partyId={activePartyId}
           onTimeUpdate={(currentTime, duration) => {
