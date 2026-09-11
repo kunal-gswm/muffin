@@ -82,12 +82,35 @@ export function createSettingsRouter(tmdbClient) {
       }
 
       fs.writeFileSync(envPath, updatedLines.join('\n'));
-      res.json({ success: true, message: 'Settings saved. Please restart the backend server.' });
+      
+      // Hot-reload the environment variables in memory so they take effect immediately
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined) {
+          process.env[key] = value;
+        }
+      }
+
+      res.json({ success: true, message: 'Settings saved successfully. Changes are now active.' });
       
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Failed to save settings' });
     }
+  });
+
+  // POST /api/settings/restart — restart the app
+  router.post('/restart', async (req, res) => {
+    res.json({ success: true, message: 'Restarting...' });
+    setTimeout(async () => {
+      try {
+        // Only works if electron is available
+        const { app } = await import('electron');
+        app.relaunch();
+        app.exit(0);
+      } catch (e) {
+        process.exit(0);
+      }
+    }, 1000);
   });
 
   // POST /api/settings/select-folder — trigger native OS folder dialog

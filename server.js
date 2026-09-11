@@ -84,6 +84,11 @@ export function createApp(services = {}) {
     res.json({ status: 'ok', uptime: process.uptime() });
   });
 
+  // Status check for setup mode
+  app.get('/api/status', (req, res) => {
+    res.json({ setupRequired: config.SETUP_REQUIRED });
+  });
+
   // 404 handler for API
   app.use('/api/*', (req, res) => {
     res.status(404).json({ error: `Not found: ${req.method} ${req.originalUrl}` });

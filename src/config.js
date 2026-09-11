@@ -13,9 +13,10 @@ export async function validateConfig() {
   const WYZIE_API_KEY = (process.env.WYZIE_API_KEY || '').trim();
   const DOWNLOADER_PATH = (process.env.DOWNLOADER_PATH || '').trim();
 
-  if (!TMDB_API_KEY) {
-    errors.push('TMDB_API_KEY is required. Get one at https://www.themoviedb.org/settings/api');
-  }
+  // TMDB_API_KEY is handled via setup mode now, no longer a fatal error
+  // if (!TMDB_API_KEY) {
+  //   errors.push('TMDB_API_KEY is required. Get one at https://www.themoviedb.org/settings/api');
+  // }
 
   if (!SUBDL_API_KEY) warnings.push('SUBDL_API_KEY not set — SubDL subtitle search disabled');
   if (!WYZIE_API_KEY) warnings.push('WYZIE_API_KEY not set — Wyzie subtitle search disabled');
@@ -61,4 +62,5 @@ export default {
   get PUPPETEER_MAX_REQUESTS() { return parseInt(process.env.PUPPETEER_MAX_REQUESTS || '50', 10); },
   get PUPPETEER_PAGE_TIMEOUT() { return parseInt(process.env.PUPPETEER_PAGE_TIMEOUT || '30000', 10); },
   get DATA_DIR() { return path.resolve(process.env.DATA_DIR || './data'); },
+  get SETUP_REQUIRED() { return !(process.env.TMDB_API_KEY || '').trim(); },
 };
