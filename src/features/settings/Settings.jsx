@@ -8,19 +8,25 @@ export default function Settings() {
     DOWNLOADER_PATH: '',
     DOWNLOAD_DIR: '',
     PREFERRED_QUALITY: '1080p',
-    DEFAULT_SOURCE: 'vidsrc'
+    DEFAULT_SOURCE: 'vidsrc',
+    LOCAL_MEDIA_DIRS: ''
   });
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectingFolder, setSelectingFolder] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [message, setMessage] = useState(null);
+  const [traktAuth, setTraktAuth] = useState(false);
 
   useEffect(() => {
     async function fetchSettings() {
       try {
         const data = await api.settings.get();
         setSettings(prev => ({ ...prev, ...data }));
+        
+        const tAuth = await api.trakt.getStatus();
+        setTraktAuth(tAuth.isAuthenticated);
       } catch (err) {
         console.error('Failed to load settings', err);
       } finally {
@@ -62,6 +68,31 @@ export default function Settings() {
       setMessage({ type: 'error', text: 'Failed to save settings.' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleScan = async () => {
+    if (!settings.LOCAL_MEDIA_DIRS) {
+      setMessage({ type: 'error', text: 'Please enter a directory to scan first.' });
+      return;
+    }
+    setScanning(true);
+    setMessage(null);
+    try {
+      const dirs = settings.LOCAL_MEDIA_DIRS.split(',').map(d => d.trim()).filter(Boolean);
+      let totalAdded = 0;
+      let totalErrors = 0;
+      for (const dir of dirs) {
+        const res = await api.settings.scanLocal(dir);
+        totalAdded += res.added || 0;
+        totalErrors += res.errors || 0;
+      }
+      setMessage({ type: 'success', text: `Scan complete! Added ${totalAdded} files (${totalErrors} errors).` });
+    } catch (err) {
+      console.error(err);
+      setMessage({ type: 'error', text: 'Failed to scan local media.' });
+    } finally {
+      setScanning(false);
     }
   };
 
@@ -155,6 +186,78 @@ export default function Settings() {
               </svg>
             )}
           </button>
+        </div>
+
+        <label style={labelStyle}>Local Media Directories (Comma separated)</label>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+          <input 
+            type="text" 
+            name="LOCAL_MEDIA_DIRS" 
+            value={settings.LOCAL_MEDIA_DIRS || ''} 
+            onChange={handleChange} 
+            style={inputStyle}
+            placeholder="e.g. D:\Movies, E:\TV Shows"
+          />
+          <button
+            type="button"
+            onClick={handleScan}
+            disabled={scanning}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: 'var(--text-primary)',
+              color: 'var(--bg-primary)',
+              fontFamily: 'Oswald, sans-serif',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              cursor: scanning ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '3rem',
+              marginTop: '0.2rem',
+              minWidth: '140px'
+            }}
+          >
+            {scanning ? 'SCANNING...' : 'SCAN NOW'}
+          </button>
+        </div>
+
+        <h3 className="text-h3" style={{ marginTop: '4rem', marginBottom: '2rem', color: 'var(--accent)' }}>Integrations</h3>
+        
+        <label style={labelStyle}>Trakt.tv Integration</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                if (traktAuth) {
+                  await api.trakt.logout();
+                  setTraktAuth(false);
+                } else {
+                  await api.trakt.login();
+                  setTraktAuth(true);
+                }
+              } catch(e) {
+                console.error(e);
+              }
+            }}
+            style={{
+              padding: '0.75rem 2rem',
+              backgroundColor: traktAuth ? 'rgba(255, 255, 255, 0.1)' : '#ed1c24',
+              color: 'white',
+              fontFamily: 'Oswald, sans-serif',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              cursor: 'pointer',
+              border: 'none',
+              borderRadius: '4px',
+            }}
+          >
+            {traktAuth ? 'DISCONNECT TRAKT.TV' : 'CONNECT TO TRAKT.TV'}
+          </button>
+          {traktAuth && <span style={{ color: 'var(--text-metadata)' }}>✓ Connected. Progress will be scrobbled automatically.</span>}
         </div>
 
         <h3 className="text-h3" style={{ marginTop: '4rem', marginBottom: '2rem', color: 'var(--accent)' }}>Preferences</h3>

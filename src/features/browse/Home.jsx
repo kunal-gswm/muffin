@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import GalleryGrid from '../../components/GalleryGrid';
+import HeroBanner from '../../components/HeroBanner';
+import ContinueWatchingRow from '../../components/ContinueWatchingRow';
+import { applyDynamicTheme, resetTheme } from '../../utils/ThemeEngine';
 
 export default function Home() {
   const [data, setData] = useState({
     continueWatching: [],
+    recommendations: [],
     trendingMovies: [],
     trendingTv: [],
     popularMovies: [],
@@ -19,16 +23,33 @@ export default function Home() {
     async function loadData() {
       try {
         let continueWatching = [];
+        let recommendations = [];
         try {
           const res = await api.history.get();
           if (res && Array.isArray(res)) {
             continueWatching = res.slice(0, 4).map(p => ({
               id: p.id,
               title: p.title,
-              poster_path: p.posterPath, // from backend
+              poster_path: p.posterPath,
+              backdrop_path: p.backdropPath,
               media_type: p.type,
               progress: p.duration > 0 ? (p.currentTime / p.duration) * 100 : 0
             }));
+            
+            if (continueWatching.length > 0) {
+              const lastWatched = continueWatching[0];
+              try {
+                const recRes = await api.tmdb.getDetails(lastWatched.media_type, `${lastWatched.id}/recommendations`);
+                if (recRes && recRes.results) {
+                  recommendations = recRes.results.slice(0, 10).map(r => ({
+                    ...r,
+                    media_type: lastWatched.media_type
+                  }));
+                }
+              } catch (recErr) {
+                console.error('Failed to fetch recommendations', recErr);
+              }
+            }
           }
         } catch (e) {
           console.error('Failed to fetch history', e);
@@ -64,6 +85,7 @@ export default function Home() {
 
         setData({
           continueWatching,
+          recommendations,
           trendingMovies: movieRes.results || [],
           trendingTv: tvRes.results || [],
           popularMovies: popularRes.results || [],
@@ -83,13 +105,64 @@ export default function Home() {
 
     const handleProgress = () => loadData();
     window.addEventListener('progress_updated', handleProgress);
-    return () => window.removeEventListener('progress_updated', handleProgress);
+    
+    return () => {
+      window.removeEventListener('progress_updated', handleProgress);
+      resetTheme();
+    };
   }, []);
+
+  // Update theme when data changes
+  useEffect(() => {
+    if (data.continueWatching[0]?.backdrop_path || data.continueWatching[0]?.poster_path) {
+      applyDynamicTheme(`https://image.tmdb.org/t/p/w300${data.continueWatching[0].backdrop_path || data.continueWatching[0].poster_path}`);
+    } else if (data.trendingMovies[0]?.backdrop_path || data.trendingMovies[0]?.poster_path) {
+      applyDynamicTheme(`https://image.tmdb.org/t/p/w300${data.trendingMovies[0].backdrop_path || data.trendingMovies[0].poster_path}`);
+    }
+  }, [data.continueWatching, data.trendingMovies]);
 
   if (loading) {
     return (
-      <div className="container" style={{ paddingTop: '10rem', minHeight: '100vh' }}>
-        <h1 className="text-h1" style={{ opacity: 0.2 }}>LOADING...</h1>
+      <div className="container page-transition" style={{ paddingTop: '8rem', paddingBottom: '4rem' }}>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <section key={i} style={{ marginBottom: '6rem' }}>
+            <div style={{ 
+              width: '250px', 
+              height: '3rem', 
+              backgroundColor: 'rgba(255,255,255,0.05)', 
+              borderRadius: '8px', 
+              marginBottom: '2rem' 
+            }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1.2rem', height: '280px' }}>
+              {Array.from({ length: 5 }).map((_, j) => (
+                <div key={j} style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  borderRadius: '16px',
+                  width: '100%',
+                  height: '100%',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent)',
+                    animation: 'shimmer 1.5s infinite linear',
+                  }} />
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+        <style>{`
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -106,22 +179,36 @@ export default function Home() {
   };
 
   return (
-    <div className="container page-transition" style={{ paddingTop: '8rem', paddingBottom: '4rem' }}>
-      
-      {data.continueWatching.length > 0 && (
-        <section style={{ marginBottom: '6rem' }}>
-          <h2 className="text-h2" style={{ marginBottom: '2rem' }}>Continue Watching</h2>
-          <GalleryGrid items={data.continueWatching} />
-        </section>
+    <div className="page-transition">
+      {/* Hero Banner with the top trending movie */}
+      {data.trendingMovies.length > 0 && (
+        <HeroBanner item={data.trendingMovies[0]} type="movie" />
       )}
 
-      {renderSection('Trending Films', data.trendingMovies, 'movie')}
-      {renderSection('Trending Series', data.trendingTv, 'tv')}
-      {renderSection('Famous & Popular', data.popularMovies, 'movie')}
-      {renderSection('Heart-Pounding Thrillers', data.thrillerMovies, 'movie')}
-      {renderSection('Gritty Crime', data.crimeMovies, 'movie')}
-      {renderSection('Suspense & Mystery Series', data.mysteryTv, 'tv')}
+      <div className="container" style={{ paddingTop: data.trendingMovies.length > 0 ? '0' : '8rem', paddingBottom: '4rem' }}>
+        
+        {data.continueWatching.length > 0 && (
+          <section style={{ marginBottom: '6rem' }}>
+            <h2 className="text-h2" style={{ marginBottom: '1.5rem' }}>Jump Back In</h2>
+            <ContinueWatchingRow items={data.continueWatching} />
+          </section>
+        )}
 
+        {data.recommendations.length > 0 && data.continueWatching.length > 0 && (
+          renderSection(
+            `Because you watched ${data.continueWatching[0].title}`, 
+            data.recommendations, 
+            data.continueWatching[0].media_type
+          )
+        )}
+
+        {renderSection('Trending Films', data.trendingMovies.length > 0 ? data.trendingMovies.slice(1) : [], 'movie')}
+        {renderSection('Trending Series', data.trendingTv, 'tv')}
+        {renderSection('Famous & Popular', data.popularMovies, 'movie')}
+        {renderSection('Heart-Pounding Thrillers', data.thrillerMovies, 'movie')}
+        {renderSection('Gritty Crime', data.crimeMovies, 'movie')}
+        {renderSection('Suspense & Mystery Series', data.mysteryTv, 'tv')}
+      </div>
     </div>
   );
 }

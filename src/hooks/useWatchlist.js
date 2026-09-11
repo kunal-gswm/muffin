@@ -1,57 +1,73 @@
 import { useState, useEffect } from 'react';
-
-const WATCHLIST_KEY = 'streambert_watchlist';
+import { api } from '../api/client';
 
 export function useWatchlist() {
   const [watchlist, setWatchlist] = useState([]);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(WATCHLIST_KEY);
-      if (stored) {
-        setWatchlist(JSON.parse(stored));
+    // Initial load from backend API
+    const loadLibrary = async () => {
+      try {
+        const data = await api.library.get();
+        if (data) {
+          // Convert the dictionary to an array and sort by savedAt descending (newest first)
+          const items = Object.values(data).sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+          setWatchlist(items);
+        }
+      } catch (err) {
+        console.error('Failed to load library from backend', err);
       }
-    } catch (err) {
-      console.error('Failed to load watchlist from localStorage', err);
-    }
+    };
+    loadLibrary();
   }, []);
-
-  const saveWatchlist = (newList) => {
-    setWatchlist(newList);
-    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(newList));
-    // Dispatch a custom event so other components (like Library) can sync across tabs/components
-    window.dispatchEvent(new Event('watchlist_updated'));
-  };
 
   const addToWatchlist = (item) => {
     // item should be { id, title, poster_path, media_type }
     setWatchlist((prev) => {
       if (prev.some(w => w.id === item.id)) return prev;
       const newList = [item, ...prev];
-      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(newList));
-      window.dispatchEvent(new Event('watchlist_updated'));
+      // Optimistically dispatch sync event for UI
+      window.dispatchEvent(new CustomEvent('watchlist_updated', { detail: newList }));
       return newList;
+    });
+
+    // Fire API request in background
+    api.library.add(item.id, item).catch(err => {
+      console.error('Failed to add to backend library', err);
     });
   };
 
   const removeFromWatchlist = (id) => {
     setWatchlist((prev) => {
       const newList = prev.filter(w => w.id !== id);
-      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(newList));
-      window.dispatchEvent(new Event('watchlist_updated'));
+      window.dispatchEvent(new CustomEvent('watchlist_updated', { detail: newList }));
       return newList;
+    });
+
+    // Fire API request in background
+    api.library.remove(id).catch(err => {
+      console.error('Failed to remove from backend library', err);
     });
   };
 
   const isInWatchlist = (id) => {
-    return watchlist.some(w => w.id === id);
+    return watchlist.some(w => String(w.id) === String(id));
   };
 
   // Sync state if another component updates it
   useEffect(() => {
-    const handleSync = () => {
-      const stored = localStorage.getItem(WATCHLIST_KEY);
-      if (stored) setWatchlist(JSON.parse(stored));
+    const handleSync = (e) => {
+      if (e.detail) {
+        setWatchlist(e.detail);
+      } else {
+        // Fallback to refetching from backend if detail is missing
+        api.library.get().then(data => {
+          if (data) {
+             const items = Object.values(data).sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+             setWatchlist(items);
+          }
+        }).catch(err => console.error('Failed to sync library', err));
+      }
     };
     window.addEventListener('watchlist_updated', handleSync);
     return () => window.removeEventListener('watchlist_updated', handleSync);

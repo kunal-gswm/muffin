@@ -15,7 +15,7 @@ export default function Poster({
     if (posterPath.startsWith('http')) {
       imgUrl = posterPath; // Absolute URL (e.g. from AllAnime)
     } else {
-      imgUrl = `https://image.tmdb.org/t/p/${isHero ? 'original' : 'w780'}${posterPath}`;
+      imgUrl = `https://image.tmdb.org/t/p/${isHero ? 'original' : 'w342'}${posterPath}`;
     }
   }
 
@@ -100,6 +100,8 @@ export default function Poster({
             zIndex: 2,
             transition: 'opacity var(--duration) var(--ease)',
           }}
+          loading="lazy"
+          decoding="async"
           className="poster-img"
         />
       ) : (

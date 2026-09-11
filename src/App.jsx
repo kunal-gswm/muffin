@@ -11,6 +11,8 @@ import AnimeDetail from './features/title/AnimeDetail';
 import ProfileSelect from './features/profiles/ProfileSelect';
 import { sound } from './utils/SoundManager';
 
+import SetupScreen from './features/setup/SetupScreen';
+
 function SplashScreen({ onComplete }) {
   const [fadeOut, setFadeOut] = useState(false);
 
@@ -62,6 +64,7 @@ function SplashScreen({ onComplete }) {
 
 function App() {
   const [appLoading, setAppLoading] = useState(true);
+  const [setupRequired, setSetupRequired] = useState(false);
   const [activeProfile, setActiveProfile] = useState(() => {
     try {
       const saved = localStorage.getItem('muffin_active_profile');
@@ -73,6 +76,23 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const isHome = location.pathname === '/';
+
+  useEffect(() => {
+    // Check if backend needs setup (e.g. missing TMDB_API_KEY)
+    fetch('http://127.0.0.1:3939/api/status')
+      .then(r => r.json())
+      .then(d => {
+        if (d.setupRequired) {
+          setSetupRequired(true);
+          setAppLoading(false); // skip splash if setup is required
+        }
+      })
+      .catch(e => console.error('Status check failed:', e));
+  }, []);
+
+  if (setupRequired) {
+    return <SetupScreen onComplete={() => setSetupRequired(false)} />;
+  }
 
   return (
     <div className="app-shell">

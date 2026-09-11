@@ -24,6 +24,20 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
   const [ariaVolumeText, setAriaVolumeText] = useState('');
   const volumeDebounceRef = useRef(null);
   const [progressPercent, setProgressPercent] = useState(0);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+
+  const handlePiP = async () => {
+    if (!videoRef.current) return;
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else if (document.pictureInPictureEnabled) {
+        await videoRef.current.requestPictureInPicture();
+      }
+    } catch (error) {
+      console.error("PiP failed", error);
+    }
+  };
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -61,11 +75,26 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
           if (document.fullscreenElement) document.exitFullscreen();
           else document.documentElement.requestFullscreen();
           break;
+        case 'escape':
+          if (!document.fullscreenElement) {
+            e.preventDefault();
+            if (onClose) onClose();
+          }
+          break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sendSync]);
+  }, [sendSync, onClose]);
+
+  // Ensure we drop out of fullscreen if the player is closed
+  useEffect(() => {
+    return () => {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+    };
+  }, []);
 
   // Handle Incoming Sync Commands
   useEffect(() => {
@@ -164,8 +193,8 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
       onTimeUpdate(ct, dur);
     }
     
-    // Update local state for progress bar
-    if (dur > 0) {
+    // Update local state for progress bar (only if not actively dragging)
+    if (dur > 0 && !isScrubbing) {
       setProgressPercent((ct / dur) * 100);
     }
 
@@ -258,8 +287,45 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
         padding: '2rem'
       }}>
         {/* Top bar */}
-        <div style={{ display: 'flex', justifyContent: isEmbed ? 'center' : 'space-between', pointerEvents: 'none' }}>
-          {!isEmbed && <h2 className="text-h2" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)', pointerEvents: 'auto' }}>{title}</h2>}
+        <div style={{ display: 'flex', justifyContent: isEmbed ? 'space-between' : 'space-between', pointerEvents: 'none' }}>
+          {!isEmbed ? (
+            <h2 className="text-h2" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)', pointerEvents: 'auto' }}>{title}</h2>
+          ) : (
+            <div style={{ flex: 1 }} /> 
+          )}
+          
+          <div style={{ display: 'flex', gap: '1rem', pointerEvents: 'auto', alignItems: 'center' }}>
+            {hasNextEpisode && (
+              <button 
+                onClick={() => {
+                  if (countdownInterval.current) clearInterval(countdownInterval.current);
+                  onNextEpisode();
+                }}
+                style={{
+                  padding: '0.5rem 1.5rem',
+                  backgroundColor: 'rgba(0,0,0,0.6)',
+                  color: 'white',
+                  borderRadius: '20px',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  fontFamily: 'Oswald, sans-serif',
+                  fontSize: '1.2rem',
+                  letterSpacing: '0.05em',
+                  cursor: 'pointer',
+                  backdropFilter: 'blur(10px)',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.6)';
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                }}
+              >
+                NEXT EPISODE ⏭
+              </button>
+            )}
           
           {isEmbed ? (
             <button 
@@ -308,6 +374,7 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
               ✕
             </button>
           )}
+          </div>
         </div>
 
         {/* Bottom bar - Only show for native video, NOT embeds */}
@@ -321,18 +388,26 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
               min="0" 
               max="100" 
               value={progressPercent || 0}
+              onMouseDown={() => setIsScrubbing(true)}
+              onMouseUp={(e) => {
+                setIsScrubbing(false);
+                if (videoRef.current) {
+                  const percent = parseFloat(e.target.value) / 100;
+                  const newTime = percent * videoRef.current.duration;
+                  sendSync('seek', newTime);
+                }
+              }}
               onChange={(e) => {
-                if (!videoRef.current) return;
                 const percent = parseFloat(e.target.value) / 100;
-                const newTime = percent * videoRef.current.duration;
-                videoRef.current.currentTime = newTime;
                 setProgressPercent(percent * 100);
-                sendSync('seek', newTime);
+                if (videoRef.current) {
+                  videoRef.current.currentTime = percent * videoRef.current.duration;
+                }
               }}
               style={{
                 width: '100%', cursor: 'pointer', accentColor: 'var(--accent)',
-                height: '4px', appearance: 'none', background: 'rgba(255,255,255,0.2)',
-                borderRadius: '2px', outline: 'none'
+                height: '8px', background: 'rgba(255,255,255,0.2)',
+                borderRadius: '4px', outline: 'none'
               }}
             />
             
@@ -384,8 +459,8 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
                     }}
                     style={{
                       width: '100px', cursor: 'pointer', accentColor: 'var(--text-primary)',
-                      height: '4px', appearance: 'none', background: 'rgba(255,255,255,0.2)',
-                      borderRadius: '2px', outline: 'none'
+                      height: '8px', background: 'rgba(255,255,255,0.2)',
+                      borderRadius: '4px', outline: 'none'
                     }}
                   />
                   {/* Invisible aria-live region for debounced announcements */}
@@ -399,10 +474,26 @@ export default function MinimalPlayer({ src, sources, defaultSource, title, isEm
                   <button 
                     onClick={() => setShowSettings(!showSettings)}
                     style={{ fontSize: '1.25rem' }}
+                    title="Settings"
                   >
                     ⚙️
                   </button>
                 )}
+                
+                {/* PiP Button (Only for native video) */}
+                {document.pictureInPictureEnabled && (
+                  <button 
+                    onClick={handlePiP}
+                    style={{ display: 'flex', alignItems: 'center' }}
+                    title="Picture-in-Picture"
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                      <rect x="12" y="13" width="7" height="5" rx="1" ry="1"></rect>
+                    </svg>
+                  </button>
+                )}
+
                 <button onClick={() => {
                   if (document.fullscreenElement) document.exitFullscreen();
                   else document.documentElement.requestFullscreen();

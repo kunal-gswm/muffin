@@ -40,7 +40,7 @@ export const api = {
       const path = type === 'movie' 
         ? `/sources/resolve/movie/${id}`
         : `/sources/resolve/tv/${id}/${season}/${episode}`;
-      return fetchApi(path, { method: 'POST', body: JSON.stringify({ source: 'vidking' }) });
+      return fetchApi(path, { method: 'POST', body: JSON.stringify({ source: 'auto' }) });
     },
     getEmbed: (type, id, season, episode, source = 'vidsrc') => {
       const path = type === 'movie'
@@ -57,7 +57,13 @@ export const api = {
   settings: {
     get: () => fetchApi('/settings'),
     update: (updates) => fetchApi('/settings', { method: 'POST', body: JSON.stringify(updates) }),
-    selectFolder: () => fetchApi('/settings/select-folder', { method: 'POST' })
+    selectFolder: () => fetchApi('/settings/select-folder', { method: 'POST' }),
+    scanLocal: (path) => fetchApi('/settings/scan-local', { method: 'POST', body: JSON.stringify({ path }) })
+  },
+  trakt: {
+    getStatus: () => fetchApi('/settings/trakt'),
+    login: () => fetchApi('/settings/trakt/login', { method: 'POST' }),
+    logout: () => fetchApi('/settings/trakt/logout', { method: 'POST' })
   },
   downloads: {
     list: () => fetchApi('/downloads'),

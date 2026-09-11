@@ -68,7 +68,7 @@ export default function TitleDetail() {
       // Revert to iframe embed for playback to bypass strict CORS policies on the raw .m3u8 streams
       const res = await api.sources.getEmbed(type, id, season, episode, 'vidking');
       if (res && res.embedUrl) {
-        setStreamData({ url: res.embedUrl, title: data.title || data.name, isEmbed: true });
+        setStreamData({ url: res.embedUrl, title: data.title || data.name, isEmbed: !res.isLocal });
       } else {
         alert('No embed URL found: ' + (res?.error || 'Unknown error'));
       }
