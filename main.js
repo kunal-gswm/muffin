@@ -39,7 +39,7 @@ async function createWindow() {
     width: 1280,
     height: 800,
     title: 'Muffin TV',
-    icon: path.join(__dirname, 'build', 'icon.png'),
+    icon: path.join(__dirname, 'build', 'icon_small.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
