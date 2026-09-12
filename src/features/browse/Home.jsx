@@ -217,13 +217,7 @@ export default function Home() {
           </section>
         )}
 
-        {data.recommendations.length > 0 && data.continueWatching.length > 0 && (
-          renderSection(
-            `Because you watched ${data.continueWatching[0].title}`, 
-            data.recommendations, 
-            data.continueWatching[0].media_type
-          )
-        )}
+        {/* Removed title-based recommendation row to reduce clutter */}
 
         {data.categoryRecommendations && data.categoryRecommendations.length > 0 && (
           renderSection(
